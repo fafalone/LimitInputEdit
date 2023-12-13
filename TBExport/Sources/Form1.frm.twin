@@ -1,0 +1,150 @@
+[ FormDesignerId ("0B8D327A-0821-4300-AEB2-7475F4820D83") ]
+[ ClassId ("041C92E5-8340-4389-BC87-240B49FF3171") ]
+[ InterfaceId ("710E9642-9473-4606-AE71-8E98D474D6FE") ]
+[ EventInterfaceId ("2F7079B5-BCBB-44C4-9C18-DCABC59BEFCD") ]
+Class Form1
+    Attribute VB_Name = "Form1"
+    Attribute VB_GlobalNameSpace = False
+    Attribute VB_Creatable = False
+    Attribute VB_PredeclaredId = True
+    Attribute VB_Exposed = False
+    Option Explicit
+    
+    '********************************************************************
+    'LimitInput                                                         '
+    '                                                                   '
+    'Implementation of SHLimitInputEditWithFlags, an API entirely       '
+    'undocumented until now. It's much more useful than the documented  '
+    'function that partially wraps it, SHLimitInputEdit (which, by the  '
+    'way, does *not* require your class to implement IShellFolder, only '
+    'IItemNameLimits). AFAIK, it's never been exported by name, so keep '
+    'the ordinal number alias in the API declare.                       '
+    '                                                                   '
+    'Function documented by Jon Johnson (fafalone)                      '
+    'Last update: 13 Dec 2023; x64 port for twinBASIC.                  '
+    '********************************************************************
+    
+    
+    'Other options not implemented:
+    '-You can set properties in a callback instead of up front... e.g. you'd set
+    ' the tip title and message to LPSTR_TEXTCALLBACK, then would receive a LIN_GETDISPINFO
+    ' message with a NMLIDISPINFO structure to set those properties then.
+    '
+    '-I didn't implement using LIM_TIPWIDTH and .cxTipWidth to set a custom width.
+    '
+    '-Most of these are optional; e.g. you don't need to specify an icon, or title/message
+    ' if you're not using the tooltip.
+    '
+    '-All declarations that existed as of XP SP1 are included.
+    '
+    '-SHLimitInputEndSubclass is exported at ordinal #888 in Vista+, but I don't know how to
+    ' restructure things to reapply a new filter. If you want to experiment, by all means.
+    '
+    '
+    Private sTitle As String
+    Private sMsg As String
+    Private sFilter As String
+    Private Const EM_LIMITTEXT = &HC5
+    #If VBA7 Then
+    Private Declare PtrSafe Function SendMessage Lib "user32" Alias "SendMessageA" (ByVal hWnd As LongPtr, ByVal wMsg As Long, ByVal wParam As LongPtr, lParam As Any) As LongPtr
+    #Else
+    Private Declare Function SendMessage Lib "user32" Alias "SendMessageA" (ByVal hWnd As Long, ByVal wMsg As Long, ByVal wParam As Long, lParam As Any) As Long    
+    #End If
+
+    
+    Public Sub BadInput(szChar As String)
+    List1.AddItem "Bad char: " & szChar
+    End Sub
+    
+    Private Sub Command1_Click()
+    Dim tli As LIMITINPUT
+    tli.cbSize = LenB(tli)
+    tli.dwMask = LIM_FILTER Or LIM_FLAGS Or LIM_TITLE Or LIM_MESSAGE Or LIM_HINST
+    tli.hInst = App.hInstance
+    sTitle = "Bad character"
+    If Check6.Value = vbChecked Then
+        tli.dwMask = tli.dwMask Or LIM_NOTIFY
+        tli.dwFlags = tli.dwFlags Or LIF_NOTIFYONBADCHAR
+        tli.hwndNotify = Form1.hWnd 'It *should* have sent it to the parent. But it wasn't working without manually specifying.
+    End If
+    If Option2(0).Value = True Then
+        tli.dwFlags = tli.dwFlags Or LIF_CATEGORYFILTER Or LIF_FORCEUPPERCASE
+        tli.pszFilter = LICF_XDIGIT Or LICF_CNTRL 'NOTE: When LIF_CATEGORYFILTER is present, this represents a LICF_ category.
+                                    '      Without that flag, you can set a custom String of allowed (or excluded) chars.
+        sMsg = "Only hexadecimal (0-9, A-F) allowed."
+    ElseIf Option2(1).Value = True Then
+        tli.dwFlags = tli.dwFlags Or LIF_EXCLUDEFILTER Or LIF_CATEGORYFILTER
+        tli.pszFilter = LICF_SPACE Or LICF_DIGIT Or LICF_CNTRL
+        sMsg = "No spaces or numbers allowed."
+    ElseIf Option2(2).Value = True Then
+        sFilter = StrConv(Text3.Text, vbFromUnicode) '& Chr(8)
+        tli.pszFilter = StrPtr(sFilter)
+        sMsg = "Only " & Text3.Text & " are allowed."
+    ElseIf Option2(3).Value = True Then
+        tli.dwFlags = tli.dwFlags Or LIF_EXCLUDEFILTER
+        sFilter = StrConv(Text4.Text, vbFromUnicode)
+        tli.pszFilter = StrPtr(sFilter)
+        sMsg = Text4.Text & " are not allowed."
+    End If
+    tli.pszTitle = StrPtr(sTitle)
+    tli.pszMessage = StrPtr(sMsg)
+    If Check7.Value = vbChecked Then
+        tli.dwMask = tli.dwMask Or LIM_ICON
+        tli.hIcon = TTI_WARNING_LARGE
+    End If
+    If Check1.Value = vbChecked Then
+        tli.dwFlags = tli.dwFlags Or LIF_SILENT
+    End If
+    If Check2.Value = vbChecked Then
+        tli.dwFlags = tli.dwFlags Or LIF_WARNINGABOVE
+    Else
+        If Check3.Value = vbChecked Then
+            tli.dwFlags = tli.dwFlags Or LIF_WARNINGOFF
+        End If
+    End If
+    If Check4.Value = vbChecked Then
+        tli.dwFlags = tli.dwFlags Or LIF_HIDETIPONVALID
+    End If
+    If Check5.Value = vbChecked Then
+        tli.dwFlags = tli.dwFlags Or LIF_KEEPCLIPBOARD
+    End If
+    If Option1(1).Value = True Then
+        tli.dwFlags = tli.dwFlags Or LIF_PASTESTOP
+    ElseIf Option1(2).Value = True Then
+        tli.dwFlags = tli.dwFlags Or LIF_PASTECANCEL
+    End If
+    If Text2.Text <> "0" Then
+        tli.dwMask = tli.dwMask Or LIM_TIMEOUT
+        tli.iTimeout = CLng(Text2.Text)
+    End If
+    Dim hr As Long
+    Dim lerr As Long
+    hr = SHLimitInputEditWithFlags(Text1.hWnd, tli)
+    lerr = Err.LastDllError
+    Debug.Print "Result (0/0 indicates success): hr=0x" & Hex$(hr) & ", err=0x" & Hex$(lerr)
+    If Check6.Value = vbChecked Then
+        Subclass2 Form1.hWnd, AddressOf FormWndProc
+    End If
+    Text1.SetFocus
+    End Sub
+    
+    Private Sub Command2_Click()
+    Dim tli As LIMITINPUT
+    tli.cbSize = LenB(tli)
+    tli.dwMask = LIM_FILTER Or LIM_FLAGS
+    tli.dwFlags = LIF_CATEGORYFILTER Or LIF_WARNINGOFF
+    tli.pszFilter = LICF_DIGIT
+    Dim lerr As Long
+    Dim hr As Long
+    hr = SHLimitInputEditWithFlags(Text1.hWnd, tli)
+    lerr = Err.LastDllError
+    Debug.Print "Result (0,0 indicates success): hr=0x" & Hex$(hr) & ", err=0x" & Hex$(lerr)
+    
+    End Sub
+    
+    Private Sub Command3_Click()
+    SendMessage Text1.hWnd, EM_LIMITTEXT, CLng(Text5.Text), ByVal 0&
+    End Sub
+
+
+End Class
