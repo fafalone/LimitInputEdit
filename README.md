@@ -143,8 +143,8 @@ I didn't implement this option in the demo because I don't see a lot of utility 
 The demo pictured at the top of this post implements a wide array of features, including subclassing for the bad character notifications, but also includes a simple 'Set to numbers only' to show how simple calls to this function can be:
 
 ```vb6
-Dim tli As LIMITINPUTSTRUCT
-tli.cbSize = Len(tli)
+Dim tli As LIMITINPUT
+tli.cbSize = LenB(tli)
 tli.dwMask = LIM_FILTER Or LIM_FLAGS
 tli.dwFlags = LIF_CATEGORYFILTER Or LIF_WARNINGOFF
 tli.pszFilter = LICF_DIGIT
