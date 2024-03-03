@@ -8,6 +8,8 @@
 
 This is an updated, x64 compatible version of my VB6 demo of the shell32.dll API `SHLimitInputEditWithFlags`, an API entirely undocumented either by Microsoft or 3rd parties until my project. There are three versions of the project in this repository, LimitInputEditWithFlags.twinproj, a full twinBASIC version that uses `Return` and `Handles` syntax etc, and a universal compatibility version (VB6, VBA6, VBA7 32bit, VBA7 64bit, twinBASIC 32bit, twinBASIC 64bit) in both VB6 and twinBASIC form with identical code.
 
+**Update (03 Mar 2024):** .twinproj has been updated to use a more recent version of WinDevLib (formerly tbShellLib) due to errors in the package tB did not raise at the time this project was released.
+
 Original description:
 
 
